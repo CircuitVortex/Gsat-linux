@@ -1,0 +1,5 @@
+# Buildroot users table — <user> <uid> <group> <gid> <password> <home> <shell> <groups> <comment>
+#
+# A leading '=' marks a plain-text password; Buildroot hashes it at build time.
+# Change it after first boot with `passwd`.
+gsat-mb86h615 -1 gsat-mb86h615 -1 =admin1231 /home/gsat-mb86h615 /bin/sh - GSAT MB86H615 operator

@@ -1,0 +1,89 @@
+name: build gsat linux
+
+# Builds the headless ARM1176 image on a GitHub runner, verifies the account and
+# console are baked in, smoke-boots it under QEMU, and uploads the artifacts.
+#
+# This exists because the local machine cannot run WSL2 (AMD-V disabled in
+# firmware). A runner needs no virtualization for the build, and QEMU TCG is
+# fast enough for a one-core ARMv6 guest.
+#
+# Activate by pushing this folder to a GitHub repository as the repo root.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'linux/**'
+      - '.github/workflows/build-gsat-linux.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential git bc bison flex libssl-dev libncurses-dev \
+            unzip rsync wget cpio python3 file ca-certificates \
+            qemu-system-arm
+
+      - name: cache buildroot tree
+        uses: actions/cache@v4
+        with:
+          path: linux/buildroot
+          key: buildroot-2024.02.x-${{ runner.os }}
+
+      - name: toolchain cache
+        uses: actions/cache@v4
+        with:
+          path: linux/output/host
+          key: host-toolchain-${{ hashFiles('linux/external/configs/**') }}
+
+      - name: make scripts executable
+        run: chmod +x scripts/*.sh
+
+      - name: build
+        run: make -j"$(nproc)" build 2>&1 | tail -40
+
+      - name: verify image contents
+        run: ./scripts/verify-image.sh output/images/rootfs.ext2
+
+      - name: smoke boot
+        run: |
+          set +e
+          command -v timeout >/dev/null || sudo apt-get install -y coreutils
+          timeout 150 qemu-system-arm \
+            -M versatilepb -cpu arm1176 -m 256M \
+            -kernel output/images/zImage \
+            -dtb output/images/versatile-pb.dtb \
+            -drive file=output/images/rootfs.ext2,if=scsi,format=raw \
+            -append "rootwait root=/dev/sda rw console=ttyAMA0,115200" \
+            -net nic,model=rtl8139 -net user \
+            -nographic > boot.log 2>&1
+          echo "--- boot log tail ---"
+          tail -40 boot.log
+          if grep -qiE 'login:|Welcome to' boot.log; then
+            echo "BOOT OK: login prompt reached"
+          else
+            echo "BOOT FAILED: no login prompt"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gsat-images
+          path: |
+            linux/output/images/zImage
+            linux/output/images/versatile-pb.dtb
+            linux/output/images/rootfs.ext2
+            linux/boot.log
+          if-no-files-found: warn

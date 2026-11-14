@@ -1,0 +1,20 @@
+# Firmware dumps — regenerable, and not ours to redistribute.
+# gsat_firm.bin must be kept offline as the device's recovery image.
+*.bin
+*.dmp
+
+# Build and scan output
+out/
+linux/output/
+linux/buildroot/
+
+# Personal machine snapshots
+pc-tweaks/backup/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS noise
+Thumbs.db
+desktop.ini

@@ -1,0 +1,44 @@
+# Kernel fragment on top of the Versatile PB defconfig.
+# Goal: small, headless, boots from a SCSI-attached ext4 image, serial console.
+
+# --- console / init -----------------------------------------------------
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+CONFIG_TMPFS=y
+CONFIG_PROC_FS=y
+CONFIG_SYSFS=y
+CONFIG_SERIAL_AMBA_PL011=y
+CONFIG_SERIAL_AMBA_PL011_CONSOLE=y
+CONFIG_UNIX98_PTYS=y
+
+# --- storage: SCSI (sym53c8xx) + ext4 -----------------------------------
+CONFIG_SCSI=y
+CONFIG_SCSI_SPI_ATTRS=y
+CONFIG_SCSI_SYM53C8XX_2=y
+CONFIG_BLK_DEV_SD=y
+CONFIG_PARTITION_ADVANCED=y
+CONFIG_EXT4_FS=y
+CONFIG_EXT4_FS_POSIX_ACL=y
+CONFIG_JBD2=y
+CONFIG_CRC16=y
+
+# --- networking (rtl8139 PCI NIC in QEMU) -------------------------------
+CONFIG_PCI=y
+CONFIG_PCI_VERSATILE=y
+CONFIG_8139CP=y
+CONFIG_MII=y
+CONFIG_INET=y
+CONFIG_IPV6=y
+
+# --- no graphics stack, no debug bloat ----------------------------------
+# CONFIG_DRM is not set
+# CONFIG_FB is not set
+# CONFIG_DEBUG_KERNEL is not set
+# CONFIG_DEBUG_FS is not set
+# CONFIG_FTRACE is not set
+# CONFIG_BLK_DEV_INITRD is not set
+# CONFIG_BLK_DEV_RAM is not set
+
+# --- ARMv6 soft-float userland: no VFP ----------------------------------
+# CONFIG_VFP is not set
+# CONFIG_NEON is not set

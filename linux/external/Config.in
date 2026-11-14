@@ -1,0 +1,10 @@
+menu "GSAT MB86H615 platform"
+
+config BR2_PACKAGE_GSAT_BANNER
+	bool "gsat boot banner"
+	default y
+	help
+	  Installs /etc/motd and a login banner identifying the image as the
+	  GSAT MB86H615 headless build. Purely cosmetic; safe to disable.
+
+endmenu

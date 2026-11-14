@@ -1,0 +1,43 @@
+# GSAT MB86H615 — headless ARM1176 Linux
+#
+# Terminal only: serial getty + Dropbear SSH, no graphics stack.
+# Runs under QEMU (versatilepb, -cpu arm1176) today; see
+# board/gsat-mb86h615/README.md for what real hardware still needs.
+
+# --- Architecture: ARM1176JZF-S (ARMv6), soft-float ---------------------
+BR2_arm=y
+BR2_arm1176jzf_s=y
+
+# --- Toolchain ----------------------------------------------------------
+BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y
+
+# --- System -------------------------------------------------------------
+BR2_TARGET_GENERIC_HOSTNAME="gsat-mb86h615"
+BR2_TARGET_GENERIC_ISSUE="GSAT MB86H615 headless console"
+BR2_TARGET_GENERIC_GETTY_PORT="ttyAMA0"
+BR2_TARGET_GENERIC_ROOT_PASSWD="admin1231"
+BR2_TARGET_GENERIC_REMOUNT_ROOTFS_RW=y
+BR2_SYSTEM_DHCP="eth0"
+BR2_ROOTFS_USERS_TABLES="$(BR2_EXTERNAL_GSAT_PATH)/board/gsat-mb86h615/users.txt"
+BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_GSAT_PATH)/board/gsat-mb86h615/post-build.sh"
+
+# --- Kernel: 6.1 LTS, Versatile PB reference board ----------------------
+BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_1=y
+BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_CUSTOM_VERSION=y
+BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="6.1.44"
+BR2_LINUX_KERNEL_DEFCONFIG="versatile"
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_GSAT_PATH)/board/gsat-mb86h615/linux.fragment"
+BR2_LINUX_KERNEL_DTS_SUPPORT=y
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="versatile-pb"
+
+# --- Headless userland --------------------------------------------------
+BR2_PACKAGE_BUSYBOX=y
+BR2_PACKAGE_DROPBEAR=y
+BR2_PACKAGE_DROPBEAR_DISABLE_REVERSEDNS=y
+BR2_PACKAGE_GSAT_BANNER=y
+
+# --- Filesystem ---------------------------------------------------------
+BR2_TARGET_ROOTFS_EXT2=y
+BR2_TARGET_ROOTFS_EXT2_SIZE="256M"
+# BR2_TARGET_ROOTFS_TAR is not set
