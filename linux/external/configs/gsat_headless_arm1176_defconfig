@@ -8,6 +8,12 @@
 BR2_arm=y
 BR2_arm1176jzf_s=y
 
+# --- Downloads: use the Buildroot mirror first, upstream as fallback ----
+# www.mpfr.org served the toolchain tarball at 1.7 KB/s and dropped the
+# connection three times, stalling the build for 96 minutes. The mirror
+# hosts every package and is checksum-verified like any other source.
+BR2_PRIMARY_SITE="https://sources.buildroot.net"
+
 # --- Toolchain ----------------------------------------------------------
 BR2_TOOLCHAIN_BUILDROOT_UCLIBC=y
 

@@ -4,8 +4,9 @@ name: build gsat linux
 # console are baked in, smoke-boots it under QEMU, and uploads the artifacts.
 #
 # This exists because the local machine cannot run WSL2 (AMD-V disabled in
-# firmware). A runner needs no virtualization for the build, and QEMU TCG is
-# fast enough for a one-core ARMv6 guest.
+# firmware) and a local WSL1 build takes hours on a 7200 RPM HDD. A runner
+# needs no virtualization for the build, and QEMU TCG is fast enough for a
+# single-core ARMv6 guest.
 #
 # Activate by pushing this folder to a GitHub repository as the repo root.
 
@@ -33,7 +34,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential git bc bison flex libssl-dev libncurses-dev \
             unzip rsync wget cpio python3 file ca-certificates \
-            qemu-system-arm
+            e2fsprogs dosfstools qemu-system-arm
 
       - name: cache buildroot tree
         uses: actions/cache@v4
@@ -45,22 +46,25 @@ jobs:
         uses: actions/cache@v4
         with:
           path: linux/output/host
-          key: host-toolchain-${{ hashFiles('linux/external/configs/**') }}
+          key: host-toolchain-${{ hashFiles('linux/external/configs/**', 'linux/external/board/**') }}
 
       - name: make scripts executable
         run: chmod +x scripts/*.sh
 
+      # pipefail matters: without it, `make ... | tail` reports tail's exit
+      # status and a failed build would march on to the verify step.
       - name: build
-        run: make -j"$(nproc)" build 2>&1 | tail -40
+        run: |
+          set -o pipefail
+          make -j"$(nproc)" build 2>&1 | tail -60
 
       - name: verify image contents
         run: ./scripts/verify-image.sh output/images/rootfs.ext2
 
-      - name: smoke boot
+      - name: smoke boot (TCG, no virtualization needed)
         run: |
           set +e
-          command -v timeout >/dev/null || sudo apt-get install -y coreutils
-          timeout 150 qemu-system-arm \
+          timeout 300 qemu-system-arm \
             -M versatilepb -cpu arm1176 -m 256M \
             -kernel output/images/zImage \
             -dtb output/images/versatile-pb.dtb \
@@ -68,14 +72,18 @@ jobs:
             -append "rootwait root=/dev/sda rw console=ttyAMA0,115200" \
             -net nic,model=rtl8139 -net user \
             -nographic > boot.log 2>&1
-          echo "--- boot log tail ---"
-          tail -40 boot.log
-          if grep -qiE 'login:|Welcome to' boot.log; then
-            echo "BOOT OK: login prompt reached"
-          else
-            echo "BOOT FAILED: no login prompt"
-            exit 1
+          rc=$?
+          echo "qemu exit: $rc (124 = killed by timeout, expected)"
+          echo "--- last 60 serial lines ---"
+          tail -60 boot.log
+          # Only a real getty prompt counts. "Welcome to" would match a banner
+          # printed before any login service is alive.
+          if grep -qE 'login:[[:space:]]*$' boot.log; then
+            echo "BOOT OK: real login prompt reached"
+            exit 0
           fi
+          echo "BOOT FAILED: no login prompt in serial log"
+          exit 1
 
       - uses: actions/upload-artifact@v4
         if: always()
