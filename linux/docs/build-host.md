@@ -1,17 +1,52 @@
-# Build host: why WSL2 can't start, and the fix
+# Build host: WSL1 (no virtualization) — resolved
 
-> **Status: local WSL2 route abandoned.** Enabling SVM requires a BIOS setting
-> change, which the machine's owner has explicitly declined. No firmware or
-> BIOS settings are to be modified. The supported path is the GitHub Actions
-> workflow in `.github/workflows/build-gsat-linux.yml`, which needs no
-> virtualization and no BIOS access. The rest of this file is kept as a record
-> of the diagnosis only — do not act on the BIOS section.
+> **Status: solved.** WSL2 is permanently unavailable on this machine: SVM is
+> off in firmware and the owner has ruled out BIOS changes. The working local
+> path is **WSL1**, which runs Linux binaries on the Windows kernel with no
+> hypervisor at all. Confirmed working: `Ubuntu 24.04.5 LTS`, kernel
+> `4.4.0-26100-Microsoft`, 4 CPUs, 214 GB free.
+>
+> Set up with `wsl1-setup.ps1` (repo root) → enable
+> `Microsoft-Windows-Subsystem-Linux` → **restart** → import
+> `Ubuntu-24.04-Build` from an Ubuntu Base tarball with `--version 1`.
+>
+> Build with:
+> ```
+> wsl -d Ubuntu-24.04-Build -- bash -lc \
+>   'JOBS=3 bash "/mnt/c/Users/Xerxes Robb Arsolon/Desktop/Reverse/linux/scripts/build-in-wsl.sh"'
+> ```
+>
+> The GitHub Actions workflow remains the fast fallback (real SSD, ~30 min),
+> and is the only option if WSL1 is ever removed upstream. **No BIOS change is
+> required or permitted.** The rest of this file is the original diagnosis.
+>
+> ## WSL1 gotchas that bite this build
+>
+> 1. **Windows PATH leaks into Linux.** WSL1 appends `C:\Program Files\...` to
+>    `PATH`; Buildroot aborts with *"Your PATH contains spaces"*. Fixed by
+>    `/etc/wsl.conf`:
+>    ```
+>    [interop]
+>    appendWindowsPath = false
+>    ```
+>    then `wsl --terminate Ubuntu-24.04-Build`. Verify:
+>    `wsl -d Ubuntu-24.04-Build -- bash -lc 'echo $PATH'` must be clean.
+> 2. **`BR2_EXTERNAL` needs `external.desc`.** Without it every
+>    `$(BR2_EXTERNAL_GSAT_PATH)` expands to `/board/...` and the users table
+>    and post-build hook silently disappear. The file is
+>    `linux/external/external.desc` (`name: GSAT`).
+> 3. **Executable bits matter.** Buildroot runs hooks directly. Set them with
+>    `git update-index --chmod=+x` and `chmod +x` inside WSL, because NTFS
+>    does not carry POSIX modes.
+> 4. **Root builds need `FORCE_UNSAFE_CONFIGURE=1`.** An imported distro runs
+>    as root, and GNU tar's `configure` aborts with *"you should not run
+>    configure as root"*. Exported by `build-in-wsl.sh`.
 
 ## Diagnosis (measured on this machine)
 
 ```
 CPU                              AMD Ryzen 3 3200G (SVM capable)
-VirtualizationFirmwareEnabled    False        <-- blocker
+VirtualizationFirmwareEnabled    False        <-- WSL2 blocker
 HypervisorPresent                False
 VirtualMachinePlatform           1 (enabled)  <-- Windows side is ready
 Microsoft-Windows-Subsystem-Linux 2 (disabled)

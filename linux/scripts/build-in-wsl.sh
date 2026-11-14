@@ -11,16 +11,27 @@ set -euo pipefail
 
 SRC="/mnt/c/Users/Xerxes Robb Arsolon/Desktop/Reverse/linux"
 WORK="${WORK:-$HOME/gsat-linux-build}"
-JOBS="$(nproc)"
+JOBS="${JOBS:-$(nproc)}"
 
 export DEBIAN_FRONTEND=noninteractive
+# The imported distro runs as root, and some host packages (GNU tar first)
+# abort in configure when invoked as root. Buildroot and its CI accept root
+# builds; this is the documented override.
+export FORCE_UNSAFE_CONFIGURE=1
 
 echo "== installing build dependencies"
 apt-get update -qq
-apt-get install -y --no-install-recommends \
-    build-essential git bc bison flex libssl-dev libncurses-dev \
-    unzip rsync wget cpio python3 file ca-certificates \
-    qemu-system-arm >/dev/null
+# e2fsprogs provides mke2fs, which Buildroot uses to build rootfs.ext2.
+# qemu-system-arm is only needed to boot-test the result: INSTALL_QEMU=1.
+PKGS="build-essential git bc bison flex libssl-dev libncurses-dev
+      unzip rsync wget cpio python3 file ca-certificates
+      perl patch gawk bzip2 xz-utils which tar gzip sed findutils
+      e2fsprogs dosfstools"
+if [ "${INSTALL_QEMU:-0}" = "1" ]; then
+    PKGS="$PKGS qemu-system-arm"
+fi
+# shellcheck disable=SC2086
+apt-get install -y --no-install-recommends $PKGS >/dev/null
 
 echo "== staging source in $WORK"
 mkdir -p "$WORK"

@@ -8,8 +8,9 @@
 set -uo pipefail
 
 IMG="${1:-output/images/rootfs.ext2}"
-KERNEL="${KERNEL:-output/images/zImage}"
-DTB="${DTB:-output/images/versatile-pb.dtb}"
+IMGDIR="$(dirname "$IMG")"
+KERNEL="${KERNEL:-$IMGDIR/zImage}"
+DTB="${DTB:-$IMGDIR/versatile-pb.dtb}"
 
 pass=0
 fail=0
@@ -53,10 +54,11 @@ if sh=$(rd /etc/shadow) && printf '%s' "$sh" | grep -q '^gsat-mb86h615:'; then
     h=$(printf '%s\n' "$sh" | awk -F: '/^gsat-mb86h615:/{print $2}')
     case "$h" in
         ''|'!'*|'*') bad "password for gsat-mb86h615 is blank or locked (hash='$h')" ;;
-        *)           ok "password hash set (${h%%\$*}\$${h#*\$})" ;;
+        \$1\$*|\$5\$*|\$6\$*|\$y\$*) ok "password hash set (${h%%\$*}crypt)" ;;
+        *)           bad "password is not a crypt hash - login impossible (got '$h')" ;;
     esac
 else
-    skip "could not read /etc/shadow"
+    bad "user gsat-mb86h615 has no /etc/shadow entry - login impossible"
 fi
 
 if rd /etc/passwd | grep -q '^root:'; then
@@ -68,10 +70,10 @@ if rd /etc/passwd | grep -q '^root:'; then
 fi
 
 echo "== console"
-if ib=$(rd /etc/inittab) && printf '%s' "$ib" | grep -q 'ttyAMA0'; then
-    ok "serial getty on ttyAMA0: $(printf '%s\n' "$ib" | grep ttyAMA0 | head -1)"
+if ib=$(rd /etc/inittab) && printf '%s\n' "$ib" | grep -qE '^ttyAMA0::respawn:/sbin/getty .*ttyAMA0 115200'; then
+    ok "serial getty on ttyAMA0 at 115200: $(printf '%s\n' "$ib" | grep ttyAMA0 | head -1)"
 else
-    bad "no ttyAMA0 getty in /etc/inittab"
+    bad "no respawning 115200 getty on ttyAMA0 in /etc/inittab"
 fi
 
 echo "== ssh"
@@ -83,9 +85,19 @@ if rd /etc/default/dropbear | grep -q -- '-w'; then ok "ssh denies root login (-
 
 echo "== headless"
 if rd /etc/motd | grep -qi 'GSAT'; then ok "GSAT motd installed"; else skip "motd not branded"; fi
-x=$(debugfs -R "ls -l /usr/bin" "$IMG" 2>/dev/null | grep -cE ' Xorg| Xvfb')
-w=$(debugfs -R "ls -l /usr/bin" "$IMG" 2>/dev/null | grep -c wayland)
-if [ "$x" -eq 0 ] && [ "$w" -eq 0 ]; then ok "no X11 / Wayland binaries"; else bad "graphics stack present"; fi
+ub=$(debugfs -R "ls -l /usr/bin" "$IMG" 2>/dev/null)
+if [ -z "$ub" ]; then
+    bad "could not list /usr/bin - debugfs read failed, so 'no graphics' is unproven"
+else
+    x=$(printf '%s\n' "$ub" | grep -cE ' Xorg| Xvfb')
+    w=$(printf '%s\n' "$ub" | grep -c wayland)
+    lib=$(debugfs -R "ls -l /usr/lib" "$IMG" 2>/dev/null | grep -cE 'libX11|libwayland')
+    if [ "$x" -eq 0 ] && [ "$w" -eq 0 ] && [ "$lib" -eq 0 ]; then
+        ok "no X11 / Wayland binaries or libraries"
+    else
+        bad "graphics stack present (X=$x wayland=$w libs=$lib)"
+    fi
+fi
 
 echo
 echo "== summary: $pass passed, $fail failed"

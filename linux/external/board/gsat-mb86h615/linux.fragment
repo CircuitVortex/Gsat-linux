@@ -1,5 +1,17 @@
 # Kernel fragment on top of the Versatile PB defconfig.
-# Goal: small, headless, boots from a SCSI-attached ext4 image, serial console.
+# Goal: small, headless, boots from a SCSI-attached ext2 image, serial console.
+
+# --- CPU: ARM1176JZF-S (ARMv6) on top of the ARMv5 versatile default ----
+# versatile_defconfig targets ARM926 (ARMv5) only. QEMU runs -cpu arm1176,
+# and an ARMv5-only kernel has no proc_info entry for 0x410fb760, so it dies
+# in setup_processor() before the console exists. Multi-v5/v6 covers both.
+CONFIG_ARCH_MULTI_V6=y
+CONFIG_CPU_V6=y
+CONFIG_CPU_32v6K=y
+# ARM1176JZF-S has VFPv2. Enabled even for a soft-float userland: harmless
+# there, and required the moment the toolchain picks the hard-float ABI.
+CONFIG_VFP=y
+# CONFIG_NEON is not set
 
 # --- console / init -----------------------------------------------------
 CONFIG_DEVTMPFS=y
@@ -11,12 +23,13 @@ CONFIG_SERIAL_AMBA_PL011=y
 CONFIG_SERIAL_AMBA_PL011_CONSOLE=y
 CONFIG_UNIX98_PTYS=y
 
-# --- storage: SCSI (sym53c8xx) + ext4 -----------------------------------
+# --- storage: SCSI (sym53c8xx) + ext2 -----------------------------------
 CONFIG_SCSI=y
 CONFIG_SCSI_SPI_ATTRS=y
 CONFIG_SCSI_SYM53C8XX_2=y
 CONFIG_BLK_DEV_SD=y
 CONFIG_PARTITION_ADVANCED=y
+CONFIG_EXT2_FS=y
 CONFIG_EXT4_FS=y
 CONFIG_EXT4_FS_POSIX_ACL=y
 CONFIG_JBD2=y
@@ -30,15 +43,13 @@ CONFIG_MII=y
 CONFIG_INET=y
 CONFIG_IPV6=y
 
-# --- no graphics stack, no debug bloat ----------------------------------
+# --- no graphics stack ---------------------------------------------------
 # CONFIG_DRM is not set
 # CONFIG_FB is not set
-# CONFIG_DEBUG_KERNEL is not set
 # CONFIG_DEBUG_FS is not set
 # CONFIG_FTRACE is not set
 # CONFIG_BLK_DEV_INITRD is not set
 # CONFIG_BLK_DEV_RAM is not set
 
-# --- ARMv6 soft-float userland: no VFP ----------------------------------
-# CONFIG_VFP is not set
-# CONFIG_NEON is not set
+# DEBUG_KERNEL is deliberately left enabled: it is what keeps earlyprintk
+# alive, which is the only way to see why a silent boot stayed silent.

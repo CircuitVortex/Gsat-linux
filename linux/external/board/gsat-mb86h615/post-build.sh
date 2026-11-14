@@ -34,6 +34,7 @@ fi
 
 # --- SSH: generate host keys at boot, no root login over ssh ------------
 mkdir -p "${TARGET_DIR}/etc/dropbear"
+mkdir -p "${TARGET_DIR}/etc/default"
 cat > "${TARGET_DIR}/etc/default/dropbear" <<'EOF'
 # -R: generate host keys if missing
 # -w: refuse root logins over ssh
