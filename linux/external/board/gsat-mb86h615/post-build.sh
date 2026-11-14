@@ -33,7 +33,9 @@ EOF
 fi
 
 # --- SSH: generate host keys at boot, no root login over ssh ------------
-mkdir -p "${TARGET_DIR}/etc/dropbear"
+# Do NOT mkdir /etc/dropbear: dropbear.mk installs it as a symlink to
+# /var/run/dropbear, which is dangling at build time, so mkdir -p fails
+# with "File exists". The init script creates the target at boot.
 mkdir -p "${TARGET_DIR}/etc/default"
 cat > "${TARGET_DIR}/etc/default/dropbear" <<'EOF'
 # -R: generate host keys if missing
